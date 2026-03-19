@@ -1,3 +1,5 @@
+[English](README.md) | 中文
+
 # LLM Translate
 
 一款 Obsidian 插件，通过任意 OpenAI 兼容的 LLM API 翻译选中文本。

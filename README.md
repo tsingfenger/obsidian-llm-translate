@@ -1,3 +1,5 @@
+[中文](README_zh.md) | English
+
 # LLM Translate
 
 An Obsidian plugin that translates selected text using any OpenAI-compatible LLM API.
