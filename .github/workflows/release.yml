@@ -21,6 +21,9 @@ jobs:
       - run: npm install
       - run: npm run build
 
+      - name: Package zip
+        run: mkdir -p obsidian-llm-translate && cp main.js manifest.json styles.css obsidian-llm-translate/ && zip -r obsidian-llm-translate.zip obsidian-llm-translate/
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -28,3 +31,4 @@ jobs:
             main.js
             manifest.json
             styles.css
+            obsidian-llm-translate.zip
