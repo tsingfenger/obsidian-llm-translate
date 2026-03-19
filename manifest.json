@@ -1,9 +1,9 @@
 {
-  "id": "obsidian-llm-translate",
+  "id": "llm-translate",
   "name": "LLM Translate",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "0.15.0",
   "description": "Translate selected text using LLM via OpenAI-compatible API.",
-  "author": "wshiz",
+  "author": "tsingfenger",
   "isDesktopOnly": false
 }

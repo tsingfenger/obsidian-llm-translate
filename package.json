@@ -1,6 +1,6 @@
 {
-  "name": "obsidian-llm-translate",
-  "version": "1.0.0",
+  "name": "llm-translate",
+  "version": "1.0.1",
   "description": "Translate selected text using LLM via OpenAI-compatible API",
   "main": "main.js",
   "scripts": {
