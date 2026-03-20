@@ -71,9 +71,9 @@ export default class TranslatePlugin extends Plugin {
 
         const view = this.app.workspace.getActiveViewOfType(MarkdownView);
         if (view?.getMode() === "source") {
-          this.translateWithEditor(view.editor);
+          void this.translateWithEditor(view.editor);
         } else {
-          this.translateFromDOM();
+          void this.translateFromDOM();
         }
       }, this.settings.autoTranslateDelay);
     });
@@ -136,14 +136,14 @@ export default class TranslatePlugin extends Plugin {
   private handleTranslateCommand(): void {
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!view) {
-      new Notice("No active markdown view");
+      new Notice("No active Markdown view");
       return;
     }
 
     if (view.getMode() === "source") {
-      this.translateWithEditor(view.editor);
+      void this.translateWithEditor(view.editor);
     } else {
-      this.translateFromDOM();
+      void this.translateFromDOM();
     }
   }
 
@@ -194,7 +194,7 @@ export default class TranslatePlugin extends Plugin {
       const result = await translate(text, this.settings);
       if (seq !== this._translateSeq) return; // superseded by a newer request
       if (this.popover?.isOpen()) {
-        this.popover.setResult(result);
+        void this.popover.setResult(result);
       }
     } catch (err) {
       if (seq !== this._translateSeq) return;

@@ -104,13 +104,13 @@ var TranslateSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("API URL").setDesc("OpenAI-compatible API base URL").addText(
+    new import_obsidian2.Setting(containerEl).setName("API URL").setDesc("OpenAI-compatible API base url").addText(
       (text) => text.setPlaceholder("https://api.openai.com").setValue(this.plugin.settings.apiUrl).onChange(async (value) => {
         this.plugin.settings.apiUrl = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("API Key").setDesc("Your API key").addText((text) => {
+    new import_obsidian2.Setting(containerEl).setName("API key").setDesc("Your API key").addText((text) => {
       text.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
         this.plugin.settings.apiKey = value.trim();
         await this.plugin.saveSettings();
@@ -123,7 +123,7 @@ var TranslateSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("Test model").setDesc(`Send a test request using the current API URL, Key, and Model`).addButton(
+    new import_obsidian2.Setting(containerEl).setName("Test model").setDesc("Send a test request using the current API URL, key, and model").addButton(
       (btn) => btn.setButtonText("Test").onClick(async () => {
         btn.setDisabled(true);
         btn.setButtonText("Testing...");
@@ -145,7 +145,7 @@ var TranslateSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("System Prompt").setDesc("System prompt sent to the LLM for translation").addTextArea((text) => {
+    new import_obsidian2.Setting(containerEl).setName("System prompt").setDesc("System prompt sent to the LLM for translation").addTextArea((text) => {
       text.setPlaceholder("You are a translator...").setValue(this.plugin.settings.systemPrompt).onChange(async (value) => {
         this.plugin.settings.systemPrompt = value;
         await this.plugin.saveSettings();
@@ -177,7 +177,7 @@ var TranslatePopover = class {
     this.contentEl = this.containerEl.createDiv("llm-translate-content");
     this.contentEl.createDiv({ cls: "llm-translate-loading", text: "Translating..." });
     this.actionsEl = this.containerEl.createDiv("llm-translate-actions");
-    this.actionsEl.style.display = "none";
+    this.actionsEl.addClass("llm-translate-hidden");
     const resizeHandle = this.containerEl.createDiv("llm-translate-resize-handle");
     this.setupResize(resizeHandle);
     this.setInitialSize();
@@ -237,7 +237,7 @@ var TranslatePopover = class {
     const onMouseUp = () => {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
-      handle.style.cursor = "grab";
+      handle.removeClass("is-dragging");
       this._interacting = false;
     };
     handle.addEventListener("mousedown", (e) => {
@@ -249,7 +249,7 @@ var TranslatePopover = class {
       startY = e.clientY;
       startLeft = parseInt(this.containerEl.style.left) || 0;
       startTop = parseInt(this.containerEl.style.top) || 0;
-      handle.style.cursor = "grabbing";
+      handle.addClass("is-dragging");
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     });
@@ -288,12 +288,14 @@ var TranslatePopover = class {
       "",
       this.component
     );
-    this.actionsEl.style.display = "";
+    this.actionsEl.removeClass("llm-translate-hidden");
     const copyBtn = this.actionsEl.createEl("button", {
       text: "Copy",
       cls: "llm-translate-btn"
     });
-    copyBtn.addEventListener("click", () => this.copyResult());
+    copyBtn.addEventListener("click", () => {
+      void this.copyResult();
+    });
     if (this.onReplace) {
       const replaceBtn = this.actionsEl.createEl("button", {
         text: "Replace",
@@ -345,7 +347,11 @@ var TranslatePlugin = class extends import_obsidian4.Plugin {
   async onload() {
     await this.loadSettings();
     this.addSettingTab(new TranslateSettingTab(this.app, this));
-    this.ribbonEl = this.addRibbonIcon("languages", "Toggle auto-translate", () => this.toggleAutoTranslate());
+    this.ribbonEl = this.addRibbonIcon(
+      "languages",
+      "Toggle auto-translate",
+      () => this.toggleAutoTranslate()
+    );
     this.updateRibbonIcon();
     this.addCommand({
       id: "translate-selection",
@@ -379,9 +385,9 @@ var TranslatePlugin = class extends import_obsidian4.Plugin {
           return;
         const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
         if ((view == null ? void 0 : view.getMode()) === "source") {
-          this.translateWithEditor(view.editor);
+          void this.translateWithEditor(view.editor);
         } else {
-          this.translateFromDOM();
+          void this.translateFromDOM();
         }
       }, this.settings.autoTranslateDelay);
     });
@@ -423,20 +429,21 @@ var TranslatePlugin = class extends import_obsidian4.Plugin {
     new import_obsidian4.Notice(`Auto-translate ${this.settings.autoTranslate ? "enabled" : "disabled"}`);
   }
   updateRibbonIcon() {
-    if (!this.ribbonEl) return;
+    if (!this.ribbonEl)
+      return;
     this.ribbonEl.toggleClass("is-active", this.settings.autoTranslate);
   }
   /** Hotkey handler: detect current mode and dispatch accordingly */
   handleTranslateCommand() {
     const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
     if (!view) {
-      new import_obsidian4.Notice("No active markdown view");
+      new import_obsidian4.Notice("No active Markdown view");
       return;
     }
     if (view.getMode() === "source") {
-      this.translateWithEditor(view.editor);
+      void this.translateWithEditor(view.editor);
     } else {
-      this.translateFromDOM();
+      void this.translateFromDOM();
     }
   }
   /** Translate in editor mode — supports Replace */
@@ -480,7 +487,7 @@ var TranslatePlugin = class extends import_obsidian4.Plugin {
       if (seq !== this._translateSeq)
         return;
       if ((_a = this.popover) == null ? void 0 : _a.isOpen()) {
-        this.popover.setResult(result);
+        void this.popover.setResult(result);
       }
     } catch (err) {
       if (seq !== this._translateSeq)

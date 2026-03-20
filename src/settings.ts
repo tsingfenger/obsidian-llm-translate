@@ -64,7 +64,7 @@ export class TranslateSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("API URL")
-      .setDesc("OpenAI-compatible API base URL")
+      .setDesc("OpenAI-compatible API base url")
       .addText((text) =>
         text
           .setPlaceholder("https://api.openai.com")
@@ -76,7 +76,7 @@ export class TranslateSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("API Key")
+      .setName("API key")
       .setDesc("Your API key")
       .addText((text) => {
         text
@@ -104,7 +104,7 @@ export class TranslateSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Test model")
-      .setDesc(`Send a test request using the current API URL, Key, and Model`)
+      .setDesc("Send a test request using the current API URL, key, and model")
       .addButton((btn) =>
         btn.setButtonText("Test").onClick(async () => {
           btn.setDisabled(true);
@@ -137,7 +137,7 @@ export class TranslateSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("System Prompt")
+      .setName("System prompt")
       .setDesc("System prompt sent to the LLM for translation")
       .addTextArea((text) => {
         text

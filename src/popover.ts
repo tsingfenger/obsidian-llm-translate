@@ -37,7 +37,7 @@ export class TranslatePopover {
 
     // Actions — hidden until result arrives
     this.actionsEl = this.containerEl.createDiv("llm-translate-actions");
-    this.actionsEl.style.display = "none";
+    this.actionsEl.addClass("llm-translate-hidden");
 
     // Resize handle (bottom-right corner)
     const resizeHandle = this.containerEl.createDiv("llm-translate-resize-handle");
@@ -70,10 +70,9 @@ export class TranslatePopover {
 
   /** Set initial width to half the article pane width */
   private setInitialSize(): void {
-    const articleEl = (
-      document.querySelector(".markdown-source-view .cm-content") ??
-      document.querySelector(".markdown-preview-view")
-    ) as HTMLElement | null;
+    const articleEl =
+      document.querySelector<HTMLElement>(".markdown-source-view .cm-content") ??
+      document.querySelector<HTMLElement>(".markdown-preview-view");
 
     const articleWidth = articleEl?.offsetWidth ?? 0;
     const initialWidth = articleWidth > 200 ? Math.round(articleWidth / 2) : 400;
@@ -116,7 +115,7 @@ export class TranslatePopover {
     const onMouseUp = () => {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
-      handle.style.cursor = "grab";
+      handle.removeClass("is-dragging");
       this._interacting = false;
     };
 
@@ -128,7 +127,7 @@ export class TranslatePopover {
       startY = e.clientY;
       startLeft = parseInt(this.containerEl.style.left) || 0;
       startTop = parseInt(this.containerEl.style.top) || 0;
-      handle.style.cursor = "grabbing";
+      handle.addClass("is-dragging");
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     });
@@ -173,12 +172,12 @@ export class TranslatePopover {
       this.component
     );
 
-    this.actionsEl.style.display = "";
+    this.actionsEl.removeClass("llm-translate-hidden");
     const copyBtn = this.actionsEl.createEl("button", {
       text: "Copy",
       cls: "llm-translate-btn",
     });
-    copyBtn.addEventListener("click", () => this.copyResult());
+    copyBtn.addEventListener("click", () => { void this.copyResult(); });
 
     if (this.onReplace) {
       const replaceBtn = this.actionsEl.createEl("button", {

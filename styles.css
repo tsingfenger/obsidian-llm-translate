@@ -10,6 +10,10 @@
   font-size: var(--font-ui-small);
 }
 
+.llm-translate-hidden {
+  display: none;
+}
+
 .llm-translate-header {
   display: flex;
   align-items: center;
@@ -20,6 +24,7 @@
   user-select: none;
 }
 
+.llm-translate-header.is-dragging,
 .llm-translate-header:active {
   cursor: grabbing;
 }
