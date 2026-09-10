@@ -10,7 +10,8 @@ An Obsidian plugin that translates selected text using any OpenAI-compatible LLM
 - **Works in both editing and reading mode**
 - **Replace or Copy** — replace selected text directly in editing mode, or copy the translation in reading mode
 - **Draggable & resizable popover** — translation results are shown in a floating panel with Markdown rendering support
-- **Any OpenAI-compatible API** — works with OpenAI, Azure OpenAI, Gemini, Claude, local models (Ollama, LM Studio), or any service exposing a `/v1/chat/completions` endpoint
+- **Two OpenAI-compatible interfaces** — choose Chat Completions (`/v1/chat/completions`) or Responses (`/v1/responses`), including compatible gateways and local model servers
+- **Automatic model discovery** — loads your provider's `/v1/models` list when settings open or the URL/key changes, with manual refresh and model entry as a fallback
 - **Customizable system prompt** — full control over translation behavior (language pairs, tone, terminology preservation, etc.)
 
 ## Installation
@@ -34,15 +35,29 @@ Open **Settings → LLM Translate** to configure:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| API URL | OpenAI-compatible API base URL | `https://api.openai.com` |
+| API type | Chat Completions or Responses | Chat Completions |
+| API URL | Host, versioned base URL, or full endpoint | `https://api.openai.com` |
 | API Key | Your API key | — |
-| Model | Model name | `gpt-4o-mini` |
+| Model | Select an available model or enter its name manually | `gpt-4o-mini` |
+| Available models | Automatically fetched model list; **Refresh** reloads it | — |
+| Custom temperature | Send the configured temperature; turn off for models that do not support it | On |
 | Temperature | Controls randomness (0–2) | `0.3` |
 | System Prompt | Instructions sent to the LLM | Auto-detect language, translate between Chinese and English |
 | Auto-translate | Translate on text selection automatically | Off |
 | Auto-translate delay | Delay (ms) before auto-translate triggers | `500` |
 
 Use the **Test** button in settings to verify your API connection.
+
+### Responses API
+
+1. Choose **Responses** under **API type**.
+2. Enter your API URL and key. For example, `https://api.openai.com`, `https://api.openai.com/v1`, and `https://api.openai.com/v1/responses` all target the standard Responses endpoint. Proxy prefixes such as `https://example.com/proxy/v1` are preserved. If your gateway specifically uses the singular `/v1/response` alias, enter that full URL.
+3. Choose a model from **Available models**, or enter its name in **Model**. The list reflects what the provider returns and may include models that cannot translate text or use the selected interface; use **Test** to check the selected model.
+4. If the model rejects the `temperature` parameter, turn off **Custom temperature** to use the provider's default.
+
+Translation and **Test** both use the selected interface. Responses requests send the system prompt as `instructions`, the selected text as `input`, and `store: false`. They currently use non-streaming JSON responses (`stream: false`). Existing saved configurations continue to use Chat Completions until you change **API type**.
+
+Model discovery uses the same URL prefix and API key for `GET /v1/models`. It runs when the settings tab opens and shortly after URL/key edits stop. Refreshing the list never changes your chosen model. If the provider does not expose a model list, manual entry and translation remain available.
 
 ## Usage
 
@@ -70,9 +85,13 @@ Click the **Languages** icon in the left ribbon (or toggle in settings) to enabl
 ## Build from Source
 
 ```bash
-npm install
-npm run build
+npm ci
+npm run check
 ```
+
+Use Node.js 20 or newer. `npm run check` runs TypeScript checking, automated tests, and the production build. `npm run build` only rebuilds `main.js`.
+
+The tests cover both API protocols, URL normalization, authentication, model discovery, provider errors, legacy settings, and settings interactions including stale requests. HTTP integration tests use a local mock provider and do not require a real API key. Use **Test** in Obsidian to verify your actual provider.
 
 For development with auto-rebuild:
 

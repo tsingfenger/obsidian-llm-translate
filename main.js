@@ -27,47 +27,171 @@ var import_obsidian4 = require("obsidian");
 // src/settings.ts
 var import_obsidian2 = require("obsidian");
 
-// src/translator.ts
+// src/api.ts
 var import_obsidian = require("obsidian");
-async function translate(text, settings) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
-  if (!settings.apiKey) {
-    throw new Error("API Key is not configured. Please set it in plugin settings.");
+function asRecord(value) {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    return value;
   }
-  const url = `${settings.apiUrl.replace(/\/+$/, "")}/v1/chat/completions`;
+  return void 0;
+}
+function buildApiUrl(apiUrl, endpoint) {
+  let url;
+  try {
+    url = new URL(apiUrl.trim());
+  } catch (e) {
+    throw new Error("Invalid API URL\uFF08\u63A5\u53E3\u5730\u5740\u65E0\u6548\uFF09. Enter an HTTP or HTTPS URL.");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Invalid API URL\uFF08\u63A5\u53E3\u5730\u5740\u65E0\u6548\uFF09. Use HTTP or HTTPS.");
+  }
+  let path = url.pathname.replace(/\/+$/, "");
+  const suffix = path.match(/\/(chat\/completions|responses?|models)$/);
+  if (suffix) {
+    path = path.slice(0, -suffix[0].length);
+  } else if (!/\/v\d+(?:beta\d*)?$/.test(path)) {
+    path += "/v1";
+  }
+  const route = endpoint === "responses" && (suffix == null ? void 0 : suffix[1]) === "response" ? "response" : endpoint;
+  url.pathname = `${path}/${route}`;
+  url.hash = "";
+  return url.toString();
+}
+function errorDetail(value) {
+  var _a;
+  if (typeof value === "string")
+    return value.slice(0, 500);
+  const error = asRecord(value);
+  if (!error)
+    return "";
+  return [error.message, (_a = error.code) != null ? _a : error.type].filter((part) => typeof part === "string" && part.length > 0).join(" \u2014 ").slice(0, 500);
+}
+async function requestApi(settings, endpoint, body) {
+  var _a;
+  if (!settings.apiKey.trim()) {
+    throw new Error("API key is not configured\uFF08\u672A\u914D\u7F6E API \u5BC6\u94A5\uFF09. Please set it in plugin settings.");
+  }
+  const url = buildApiUrl(settings.apiUrl, endpoint);
   let response;
   try {
     response = await (0, import_obsidian.requestUrl)({
       url,
-      method: "POST",
+      method: body ? "POST" : "GET",
       throw: false,
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiKey}`
+        ...body ? { "Content-Type": "application/json" } : {},
+        Authorization: `Bearer ${settings.apiKey.trim()}`
       },
-      body: JSON.stringify({
-        model: settings.model,
-        temperature: settings.temperature,
-        messages: [
-          { role: "system", content: settings.systemPrompt },
-          { role: "user", content: text }
-        ]
-      })
+      ...body ? { body: JSON.stringify(body) } : {}
     });
   } catch (err) {
-    throw new Error(`Network error: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`Network error\uFF08\u7F51\u7EDC\u9519\u8BEF\uFF09: ${err instanceof Error ? err.message : String(err)}`);
   }
-  if (response.status !== 200) {
-    const apiMsg = (_b = (_a = response.json) == null ? void 0 : _a.error) == null ? void 0 : _b.message;
-    const code = (_h = (_g = (_d = (_c = response.json) == null ? void 0 : _c.error) == null ? void 0 : _d.code) != null ? _g : (_f = (_e = response.json) == null ? void 0 : _e.error) == null ? void 0 : _f.type) != null ? _h : "";
-    const detail = [apiMsg, code].filter(Boolean).join(" \u2014 ");
+  let data;
+  try {
+    data = JSON.parse(response.text);
+  } catch (e) {
+    throw new Error(`HTTP ${response.status}: upstream returned a non-JSON response\uFF08\u4E0A\u6E38\u8FD4\u56DE\u4E86\u975E JSON \u54CD\u5E94\uFF09.`);
+  }
+  const error = (_a = asRecord(data)) == null ? void 0 : _a.error;
+  const detail = errorDetail(error);
+  if (response.status < 200 || response.status >= 300) {
     throw new Error(`HTTP ${response.status}${detail ? `: ${detail}` : ""}`);
   }
-  const content = (_l = (_k = (_j = (_i = response.json) == null ? void 0 : _i.choices) == null ? void 0 : _j[0]) == null ? void 0 : _k.message) == null ? void 0 : _l.content;
-  if (typeof content !== "string") {
-    throw new Error("Unexpected API response format: no content in response.");
+  if (error) {
+    throw new Error(`API error\uFF08\u63A5\u53E3\u9519\u8BEF\uFF09${detail ? `: ${detail}` : ""}`);
   }
-  return content.trim();
+  return data;
+}
+async function fetchModels(settings) {
+  var _a, _b;
+  const data = (_a = asRecord(await requestApi(settings, "models"))) == null ? void 0 : _a.data;
+  if (!Array.isArray(data)) {
+    throw new Error("Unexpected model list format\uFF08\u6A21\u578B\u5217\u8868\u683C\u5F0F\u5F02\u5E38\uFF09: expected a data array.");
+  }
+  const ids = [];
+  for (const item of data) {
+    const id = (_b = asRecord(item)) == null ? void 0 : _b.id;
+    if (typeof id === "string" && id.trim())
+      ids.push(id.trim());
+  }
+  if (data.length > 0 && ids.length === 0) {
+    throw new Error("No valid model IDs in response\uFF08\u54CD\u5E94\u4E2D\u6CA1\u6709\u6709\u6548\u7684\u6A21\u578B\u540D\u79F0\uFF09.");
+  }
+  return [...new Set(ids)].sort((a, b) => a.localeCompare(b));
+}
+
+// src/translator.ts
+function responseText(data) {
+  var _a, _b;
+  const response = asRecord(data);
+  if (!response)
+    throw new Error("Unexpected Responses format\uFF08\u54CD\u5E94\u683C\u5F0F\u5F02\u5E38\uFF09.");
+  if (response.status && response.status !== "completed") {
+    const reason = (_a = asRecord(response.incomplete_details)) == null ? void 0 : _a.reason;
+    throw new Error(`Response not completed\uFF08\u54CD\u5E94\u672A\u5B8C\u6210\uFF09: ${response.status}${typeof reason === "string" ? ` \u2014 ${reason}` : ""}`);
+  }
+  const parts = [];
+  if (Array.isArray(response.output)) {
+    for (const value of response.output) {
+      const item = asRecord(value);
+      if ((item == null ? void 0 : item.type) !== "message" || item.role !== "assistant" || !Array.isArray(item.content))
+        continue;
+      if (item.status && item.status !== "completed") {
+        throw new Error(`Response message not completed\uFF08\u54CD\u5E94\u6D88\u606F\u672A\u5B8C\u6210\uFF09: ${item.status}`);
+      }
+      for (const value2 of item.content) {
+        const part = asRecord(value2);
+        if ((part == null ? void 0 : part.type) === "refusal") {
+          throw new Error(`Model refused the request\uFF08\u6A21\u578B\u62D2\u7EDD\u4E86\u8BF7\u6C42\uFF09: ${(_b = part.refusal) != null ? _b : ""}`);
+        }
+        if ((part == null ? void 0 : part.type) === "output_text" && typeof part.text === "string") {
+          parts.push(part.text);
+        }
+      }
+    }
+  }
+  return parts.length > 0 ? parts.join("") : typeof response.output_text === "string" ? response.output_text : "";
+}
+function chatText(data) {
+  var _a;
+  const choices = (_a = asRecord(data)) == null ? void 0 : _a.choices;
+  const choice = Array.isArray(choices) ? asRecord(choices[0]) : void 0;
+  const message = asRecord(choice == null ? void 0 : choice.message);
+  if (message == null ? void 0 : message.refusal) {
+    throw new Error(`Model refused the request\uFF08\u6A21\u578B\u62D2\u7EDD\u4E86\u8BF7\u6C42\uFF09: ${message.refusal}`);
+  }
+  if ((choice == null ? void 0 : choice.finish_reason) === "length" || (choice == null ? void 0 : choice.finish_reason) === "content_filter") {
+    throw new Error(`Translation not completed\uFF08\u7FFB\u8BD1\u672A\u5B8C\u6210\uFF09: ${choice.finish_reason}`);
+  }
+  return typeof (message == null ? void 0 : message.content) === "string" ? message.content : "";
+}
+async function translate(text, settings) {
+  if (!settings.model.trim()) {
+    throw new Error("Model is not configured\uFF08\u672A\u914D\u7F6E\u6A21\u578B\uFF09. Please choose or enter a model.");
+  }
+  const useResponses = settings.apiType === "responses";
+  const body = {
+    model: settings.model.trim(),
+    ...settings.sendTemperature !== false ? { temperature: settings.temperature } : {},
+    ...useResponses ? {
+      instructions: settings.systemPrompt,
+      input: [{ role: "user", content: [{ type: "input_text", text }] }],
+      store: false,
+      stream: false
+    } : {
+      messages: [
+        { role: "system", content: settings.systemPrompt },
+        { role: "user", content: text }
+      ]
+    }
+  };
+  const data = await requestApi(settings, useResponses ? "responses" : "chat/completions", body);
+  const content = (useResponses ? responseText(data) : chatText(data)).trim();
+  if (!content) {
+    throw new Error("Unexpected API response format\uFF08\u63A5\u53E3\u54CD\u5E94\u683C\u5F0F\u5F02\u5E38\uFF09: no translated text in response.");
+  }
+  return content;
 }
 async function testModel(settings) {
   return translate("Hello", { ...settings, systemPrompt: "Reply with exactly: OK" });
@@ -77,8 +201,10 @@ async function testModel(settings) {
 var DEFAULT_SETTINGS = {
   apiUrl: "https://api.openai.com",
   apiKey: "",
+  apiType: "chat-completions",
   model: "gpt-4o-mini",
   temperature: 0.3,
+  sendTemperature: true,
   systemPrompt: "You are a translator. Detect the language of the input text. If it is Chinese, translate it to English. Otherwise, translate it to Chinese. Output ONLY the translated text, no explanations.",
   autoTranslate: false,
   autoTranslateDelay: 500
@@ -86,9 +212,15 @@ var DEFAULT_SETTINGS = {
 var TranslateSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
+    this.models = [];
+    this.modelRequestId = 0;
+    this.visible = false;
     this.plugin = plugin;
   }
   display() {
+    this.hide();
+    this.visible = true;
+    this.models = [];
     const { containerEl } = this;
     containerEl.empty();
     new import_obsidian2.Setting(containerEl).setName("Auto-translate on selection").setDesc("Automatically translate when you finish selecting text (mouse release)").addToggle(
@@ -104,32 +236,62 @@ var TranslateSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("API URL").setDesc("OpenAI-compatible API base url").addText(
+    new import_obsidian2.Setting(containerEl).setName("API type\uFF08\u63A5\u53E3\u7C7B\u578B\uFF09").setDesc("Choose the interface supported by your provider\uFF08\u9009\u62E9\u4E0A\u6E38\u652F\u6301\u7684\u63A5\u53E3\uFF09").addDropdown(
+      (dropdown) => dropdown.addOption("chat-completions", "Chat Completions\uFF08\u804A\u5929\u8865\u5168\uFF09").addOption("responses", "Responses\uFF08\u54CD\u5E94\uFF09").setValue(this.plugin.settings.apiType).onChange(async (value) => {
+        if (value !== "chat-completions" && value !== "responses")
+          return;
+        this.plugin.settings.apiType = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("API URL").setDesc("Host, base URL ending in /v1, or full endpoint\uFF08\u652F\u6301\u57DF\u540D\u3001\u4EE5 /v1 \u7ED3\u5C3E\u7684\u57FA\u7840\u5730\u5740\u6216\u5B8C\u6574\u63A5\u53E3\u5730\u5740\uFF09").addText(
       (text) => text.setPlaceholder("https://api.openai.com").setValue(this.plugin.settings.apiUrl).onChange(async (value) => {
         this.plugin.settings.apiUrl = value.trim();
+        this.scheduleModelRefresh();
         await this.plugin.saveSettings();
       })
     );
     new import_obsidian2.Setting(containerEl).setName("API key").setDesc("Your API key").addText((text) => {
       text.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
         this.plugin.settings.apiKey = value.trim();
+        this.scheduleModelRefresh();
         await this.plugin.saveSettings();
       });
       text.inputEl.type = "password";
     });
-    new import_obsidian2.Setting(containerEl).setName("Model").setDesc("Model name to use for translation").addText(
-      (text) => text.setPlaceholder("gpt-4o-mini").setValue(this.plugin.settings.model).onChange(async (value) => {
+    new import_obsidian2.Setting(containerEl).setName("Model\uFF08\u6A21\u578B\uFF09").setDesc("Choose from the list below or enter a model name\uFF08\u53EF\u4ECE\u4E0B\u65B9\u5217\u8868\u9009\u62E9\uFF0C\u4E5F\u53EF\u624B\u52A8\u8F93\u5165\uFF09").addText((text) => {
+      this.modelText = text;
+      text.setPlaceholder("gpt-4o-mini").setValue(this.plugin.settings.model).onChange(async (value) => {
         this.plugin.settings.model = value.trim();
+        this.updateModelDropdown();
         await this.plugin.saveSettings();
-      })
-    );
+      });
+    });
+    this.modelListSetting = new import_obsidian2.Setting(containerEl).setName("Available models\uFF08\u53EF\u7528\u6A21\u578B\uFF09").addDropdown((dropdown) => {
+      this.modelDropdown = dropdown;
+      dropdown.onChange(async (value) => {
+        var _a;
+        if (!value)
+          return;
+        this.plugin.settings.model = value;
+        (_a = this.modelText) == null ? void 0 : _a.setValue(value);
+        await this.plugin.saveSettings();
+      });
+    }).addButton((button) => {
+      this.refreshButton = button;
+      button.setButtonText("Refresh\uFF08\u5237\u65B0\uFF09").onClick(() => {
+        void this.refreshModels();
+      });
+    });
+    this.updateModelDropdown();
     new import_obsidian2.Setting(containerEl).setName("Test model").setDesc("Send a test request using the current API URL, key, and model").addButton(
       (btn) => btn.setButtonText("Test").onClick(async () => {
         btn.setDisabled(true);
         btn.setButtonText("Testing...");
         try {
-          const reply = await testModel(this.plugin.settings);
-          new import_obsidian2.Notice(`Model (${this.plugin.settings.model}) responded: ${reply}`, 6e3);
+          const settings = { ...this.plugin.settings };
+          const reply = await testModel(settings);
+          new import_obsidian2.Notice(`Model (${settings.model}) responded: ${reply}`, 6e3);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           new import_obsidian2.Notice(`Test failed: ${msg}`, 6e3);
@@ -139,9 +301,18 @@ var TranslateSettingTab = class extends import_obsidian2.PluginSettingTab {
         }
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("Temperature").setDesc("Controls randomness (0 = deterministic, 2 = creative)").addSlider(
+    const temperatureSetting = new import_obsidian2.Setting(containerEl).setName("Custom temperature\uFF08\u81EA\u5B9A\u4E49\u6E29\u5EA6\uFF09").setDesc("Turn off if the model rejects temperature\uFF08\u6A21\u578B\u4E0D\u652F\u6301\u6E29\u5EA6\u53C2\u6570\u65F6\u5173\u95ED\uFF0C\u4F7F\u7528\u4E0A\u6E38\u9ED8\u8BA4\u503C\uFF09");
+    const temperatureSliderSetting = new import_obsidian2.Setting(containerEl).setName("Temperature").setDesc("Controls randomness (0 = deterministic, 2 = creative)").addSlider(
       (slider) => slider.setLimits(0, 2, 0.1).setValue(this.plugin.settings.temperature).setDynamicTooltip().onChange(async (value) => {
         this.plugin.settings.temperature = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    temperatureSliderSetting.setDisabled(!this.plugin.settings.sendTemperature);
+    temperatureSetting.addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.sendTemperature).onChange(async (value) => {
+        this.plugin.settings.sendTemperature = value;
+        temperatureSliderSetting.setDisabled(!value);
         await this.plugin.saveSettings();
       })
     );
@@ -153,6 +324,76 @@ var TranslateSettingTab = class extends import_obsidian2.PluginSettingTab {
       text.inputEl.rows = 5;
       text.inputEl.cols = 40;
     });
+    void this.refreshModels();
+  }
+  hide() {
+    this.visible = false;
+    this.modelRequestId++;
+    this.clearModelRefreshTimer();
+  }
+  clearModelRefreshTimer() {
+    if (this.modelRefreshTimer !== void 0) {
+      clearTimeout(this.modelRefreshTimer);
+      this.modelRefreshTimer = void 0;
+    }
+  }
+  updateModelDropdown() {
+    const dropdown = this.modelDropdown;
+    if (!dropdown)
+      return;
+    dropdown.selectEl.empty();
+    dropdown.addOption("", "Choose a model\uFF08\u9009\u62E9\u6A21\u578B\uFF09");
+    for (const model of this.models)
+      dropdown.addOption(model, model);
+    dropdown.setValue(this.models.includes(this.plugin.settings.model) ? this.plugin.settings.model : "");
+    dropdown.selectEl.disabled = this.models.length === 0;
+  }
+  scheduleModelRefresh() {
+    var _a, _b;
+    this.clearModelRefreshTimer();
+    this.modelRequestId++;
+    this.models = [];
+    this.updateModelDropdown();
+    (_a = this.refreshButton) == null ? void 0 : _a.setDisabled(false);
+    (_b = this.modelListSetting) == null ? void 0 : _b.setDesc("Waiting for API settings\uFF08\u7B49\u5F85\u63A5\u53E3\u914D\u7F6E\uFF09\u2026");
+    this.modelRefreshTimer = setTimeout(() => {
+      this.modelRefreshTimer = void 0;
+      void this.refreshModels();
+    }, 600);
+  }
+  async refreshModels() {
+    var _a, _b, _c, _d, _e, _f, _g;
+    this.clearModelRefreshTimer();
+    if (!this.visible)
+      return;
+    const requestId = ++this.modelRequestId;
+    const settings = { ...this.plugin.settings };
+    this.models = [];
+    this.updateModelDropdown();
+    if (!settings.apiUrl || !settings.apiKey) {
+      (_a = this.refreshButton) == null ? void 0 : _a.setDisabled(false);
+      (_b = this.modelListSetting) == null ? void 0 : _b.setDesc("Enter an API URL and key to load models automatically\uFF08\u586B\u5199\u5730\u5740\u4E0E\u5BC6\u94A5\u540E\u81EA\u52A8\u83B7\u53D6\u6A21\u578B\uFF09.");
+      return;
+    }
+    (_c = this.refreshButton) == null ? void 0 : _c.setDisabled(true);
+    (_d = this.modelListSetting) == null ? void 0 : _d.setDesc("Loading models\uFF08\u6B63\u5728\u83B7\u53D6\u6A21\u578B\uFF09\u2026");
+    try {
+      const models = await fetchModels(settings);
+      if (!this.visible || requestId !== this.modelRequestId)
+        return;
+      this.models = models;
+      this.updateModelDropdown();
+      (_e = this.modelListSetting) == null ? void 0 : _e.setDesc(models.length > 0 ? `${models.length} models loaded\uFF08\u5DF2\u83B7\u53D6 ${models.length} \u4E2A\u6A21\u578B\uFF09. Choose one, then test it\uFF08\u9009\u62E9\u540E\u53EF\u70B9\u51FB Test \u6D4B\u8BD5\uFF09.` : "No models returned. Enter a model manually\uFF08\u4E0A\u6E38\u672A\u8FD4\u56DE\u6A21\u578B\uFF0C\u53EF\u624B\u52A8\u8F93\u5165\uFF09.");
+    } catch (err) {
+      if (!this.visible || requestId !== this.modelRequestId)
+        return;
+      const message = err instanceof Error ? err.message : String(err);
+      (_f = this.modelListSetting) == null ? void 0 : _f.setDesc(`Could not load models\uFF08\u83B7\u53D6\u6A21\u578B\u5931\u8D25\uFF09: ${message}. Enter a model manually\uFF08\u53EF\u624B\u52A8\u8F93\u5165\u6A21\u578B\uFF09.`);
+    } finally {
+      if (this.visible && requestId === this.modelRequestId) {
+        (_g = this.refreshButton) == null ? void 0 : _g.setDisabled(false);
+      }
+    }
   }
 };
 

@@ -1,4 +1,4 @@
-import { Component, MarkdownRenderer } from "obsidian";
+import { MarkdownRenderer, type Plugin } from "obsidian";
 
 export class TranslatePopover {
   private containerEl: HTMLElement;
@@ -6,14 +6,14 @@ export class TranslatePopover {
   private actionsEl: HTMLElement;
   private result: string | null = null;
   private onReplace: ((text: string) => void) | null = null;
-  private component: Component;
+  private component: Plugin;
   private escHandler: (e: KeyboardEvent) => void;
   private clickOutsideHandler: (e: MouseEvent) => void;
   private _interacting = false;
 
   constructor(
     rect: DOMRect,
-    component: Component,
+    component: Plugin,
     onReplace?: (text: string) => void
   ) {
     this.onReplace = onReplace ?? null;

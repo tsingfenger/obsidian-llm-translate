@@ -18,8 +18,8 @@ jobs:
         with:
           node-version: 20
 
-      - run: npm install
-      - run: npm run build
+      - run: npm ci
+      - run: npm run check
 
       - name: Package zip
         run: mkdir -p llm-translate && cp main.js manifest.json styles.css llm-translate/ && zip -r llm-translate.zip llm-translate/
