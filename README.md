@@ -11,6 +11,7 @@ An Obsidian plugin that translates selected text using any OpenAI-compatible LLM
 - **Replace or Copy** — replace selected text directly in editing mode, or copy the translation in reading mode
 - **Draggable & resizable popover** — translation results are shown in a floating panel with Markdown rendering support
 - **Two OpenAI-compatible interfaces** — choose Chat Completions (`/v1/chat/completions`) or Responses (`/v1/responses`), including compatible gateways and local model servers
+- **Gemini OpenAI compatibility** — use Google's `v1beta/openai` base URL with a Gemini API key from Google AI Studio
 - **Automatic model discovery** — loads your provider's `/v1/models` list when settings open or the URL/key changes, with manual refresh and model entry as a fallback
 - **Customizable system prompt** — full control over translation behavior (language pairs, tone, terminology preservation, etc.)
 
@@ -47,6 +48,8 @@ Open **Settings → LLM Translate** to configure:
 | Auto-translate delay | Delay (ms) before auto-translate triggers | `500` |
 
 Use the **Test** button in settings to verify your API connection.
+
+For Google's Gemini OpenAI-compatible endpoint, choose **Chat Completions** and use `https://generativelanguage.googleapis.com/v1beta/openai/` as the API URL. The API key can come from Google AI Studio. The native Gemini base URL ending at `/v1beta` uses a different `x-goog-api-key` authentication header and `generateContent` route, which this OpenAI-compatible plugin does not call.
 
 ### Responses API
 

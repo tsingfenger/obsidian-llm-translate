@@ -19,6 +19,7 @@ test("URL normalization supports hosts, versioned/proxy bases, full endpoints, a
     [" https://example.com/// ", "https://example.com/v1"],
     ["https://example.com/v1/", "https://example.com/v1"],
     ["https://example.com/proxy/v1", "https://example.com/proxy/v1"],
+    ["https://example.com/v1beta/openai/", "https://example.com/v1beta/openai"],
     ["https://example.com/proxy", "https://example.com/proxy/v1"],
     ["https://example.com/v2", "https://example.com/v2"],
     ["https://example.com/v1/chat/completions/", "https://example.com/v1"],

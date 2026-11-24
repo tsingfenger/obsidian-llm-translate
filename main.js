@@ -49,7 +49,7 @@ function buildApiUrl(apiUrl, endpoint) {
   const suffix = path.match(/\/(chat\/completions|responses?|models)$/);
   if (suffix) {
     path = path.slice(0, -suffix[0].length);
-  } else if (!/\/v\d+(?:beta\d*)?$/.test(path)) {
+  } else if (!/\/v\d+(?:beta\d*)?(?:\/openai)?$/.test(path)) {
     path += "/v1";
   }
   const route = endpoint === "responses" && (suffix == null ? void 0 : suffix[1]) === "response" ? "response" : endpoint;

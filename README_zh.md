@@ -11,6 +11,7 @@
 - **替换或复制** — 编辑模式下可直接替换选中文本，阅读模式下可复制翻译结果
 - **可拖拽、可调整大小的弹窗** — 翻译结果以浮动面板展示，支持 Markdown 渲染
 - **支持两种 OpenAI 兼容接口** — 可选择 Chat Completions（聊天补全，`/v1/chat/completions`）或 Responses（响应，`/v1/responses`），支持提供对应接口的中转服务和本地模型服务
+- **兼容 Gemini 的 OpenAI 接口** — 可使用 Google AI Studio 生成的 Gemini API 密钥和 Google 提供的 `v1beta/openai` 地址
 - **自动获取模型列表** — 打开设置或修改地址、密钥后自动读取上游 `/v1/models`，支持手动刷新，也可直接填写模型名称
 - **自定义系统提示词** — 完全控制翻译行为（语言对、语气、术语保留等）
 
@@ -47,6 +48,8 @@
 | Auto-translate delay | 自动翻译触发延迟（毫秒） | `500` |
 
 配置完成后可点击设置中的 **Test（测试）** 按钮验证 API 连接。
+
+使用 Google Gemini 的 OpenAI 兼容接口时，请选择 **Chat Completions（聊天补全）**，并将 API URL（接口地址）填写为 `https://generativelanguage.googleapis.com/v1beta/openai/`。API Key（API 密钥）填写 Google AI Studio 生成的密钥。只填写到 `/v1beta` 的 Gemini 原生地址使用另一套 `x-goog-api-key` 鉴权和 `generateContent` 路径，本插件的 OpenAI 兼容调用不会请求这套原生接口。
 
 ### 使用 Responses（响应）接口
 

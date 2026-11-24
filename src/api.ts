@@ -27,7 +27,7 @@ export function buildApiUrl(apiUrl: string, endpoint: ApiEndpoint): string {
   const suffix = path.match(/\/(chat\/completions|responses?|models)$/);
   if (suffix) {
     path = path.slice(0, -suffix[0].length);
-  } else if (!/\/v\d+(?:beta\d*)?$/.test(path)) {
+  } else if (!/\/v\d+(?:beta\d*)?(?:\/openai)?$/.test(path)) {
     path += "/v1";
   }
 
